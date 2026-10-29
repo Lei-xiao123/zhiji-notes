@@ -12,25 +12,8 @@
 
 ## 构建
 
-需要 64 位 Windows 10/11 和 .NET Framework 4.6.2 或更高版本。运行软件还需要 Microsoft Edge WebView2 Runtime。
+<img width="1308" height="849" alt="image" src="https://github.com/user-attachments/assets/ae33a3ee-a392-4256-b961-35b0d353537d" />
 
-在项目目录用 PowerShell 运行：
-
-```powershell
-.\build.ps1
-```
-
-首次构建从 NuGet 官方源下载固定版本 `Microsoft.Web.WebView2 1.0.3912.50` 到 `vendor/`，因此需要联网。编译器使用 Windows 自带的 .NET Framework C# 编译器，不需要 Visual Studio。已经恢复依赖后可以离线构建。
-
-生成的程序为 `dist/Zhiji-v13.exe`，同目录的三个 DLL 需要保留。
-
-构建可分享的完整压缩包：
-
-```powershell
-.\package.ps1
-```
-
-输出 `dist/Zhiji-Windows.zip`。打包脚本只复制明确列出的程序文件，不会复制已有安装目录或个人笔记。
 
 ## 使用与数据
 
