@@ -1,0 +1,35 @@
+const fs=require('fs'),vm=require('vm'),assert=require('assert'),crypto=require('crypto');
+const elements=new Map();
+function element(id){if(!elements.has(id))elements.set(id,{id,value:'',innerHTML:'',hidden:false,style:{setProperty(){}},dataset:{},classList:{toggle(){},add(){},remove(){}},querySelectorAll(){return[]},querySelector(){return element('query')},setAttribute(){},addEventListener(){},getBoundingClientRect(){return{width:1100,height:720,left:0,top:0,right:1100,bottom:720}},append(){},prepend(){},after(){},before(){},remove(){},focus(){},select(){},click(){},matches(){return false},getContext(){return{measureText(s){return{width:s.length*10}}}}});return elements.get(id);}
+const context={console,crypto,structuredClone,TextEncoder,queueMicrotask(){},setTimeout(){return 1},clearTimeout(){},setInterval(){},innerWidth:1400,innerHeight:900,document:{getElementById:element,querySelectorAll(){return[]},createElement:element,documentElement:element('html'),body:element('body'),addEventListener(){}},window:{addEventListener(){}},fetch(){return Promise.resolve({ok:true,json:async()=>({Documents:[]})})},URL,Blob};
+vm.createContext(context);
+let script=fs.readFileSync('app.html','utf8').split('<script>')[1].split('</script>')[0].replace(/init\(\);\s*$/,'');
+vm.runInContext(script,context);
+vm.runInContext(fs.readFileSync('folder-images.js','utf8'),context);
+vm.runInContext(fs.readFileSync('workspace-ui.js','utf8'),context);
+vm.runInContext(fs.readFileSync('navigation-fonts.js','utf8'),context);
+vm.runInContext(`$('font-panel').hidden=true;$('create-menu').hidden=true;`,context);
+vm.runInContext(fs.readFileSync('rich-text.js','utf8'),context);
+vm.runInContext(fs.readFileSync('inline-toolbar.js','utf8'),context);
+const run=s=>vm.runInContext(s,context);
+
+run('library=normalizeLibrary({Documents:[{Title:"测试",Items:[{Text:"普通文字 重点内容 保持原样",Children:[]},{Text:"第二项",Children:[]}]}]});currentId=library.Documents[0].Id;selectedId=doc().Items[1].Id;ready=true;render();fitMap()');
+assert.equal(run('positions.size'),3);
+run('indent(false)');assert.equal(run('doc().Items.length'),1);run('indent(true)');assert.equal(run('doc().Items.length'),2);
+run('toggleDone()');assert.equal(run('find(selectedId).n.Done'),true);run('undo()');assert.notEqual(run('find(selectedId).n.Done'),true);
+run('const a=createFolder("学习",null);const b=createFolder("子文件夹",a.Id);activeFolderId=b.Id;newDoc()');assert.equal(run('doc().FolderId'),run('b.Id'));
+run('recycleFolder(a.Id);$("modal-ok").onclick()');assert.equal(run('folders().every(f=>f.Deleted)'),true);run('restoreEntry("folder",a.Id)');assert.equal(run('folders().some(f=>f.Deleted)'),false);
+run('const patched=patchTextRuns([{Text:"普通文字 重点内容 保持原样",Style:{}}],5,9,{Family:"KaiTi",Size:28,Color:"#d74668"})');
+assert.deepEqual(JSON.parse(run('JSON.stringify(patched.map(r=>r.Text))')),['普通文字 ','重点内容',' 保持原样']);
+assert.equal(run('patched[0].Style.Size'),undefined);assert.equal(run('patched[1].Style.Size'),28);assert.equal(run('patched[2].Style.Color'),undefined);
+run('const overlap=patchTextRuns(patched,2,7,{Color:"#286aa8"})');assert.equal(run('overlap.map(r=>r.Text).join("")'),'普通文字 重点内容 保持原样');assert.equal(run('overlap.find(r=>r.Text.includes("重点")).Style.Size'),28);
+run('const resetRuns=patchTextRuns(patched,5,9,{},true)');assert.equal(run('resetRuns.length'),1);assert.equal(run('resetRuns[0].Style.Size'),undefined);
+run('const richOwner={Text:"普通文字 重点内容 保持原样",Children:[],TextRuns:patched};const mixedMetrics=metrics(richOwner,1)');assert(run('mixedMetrics.textH>=28*1.55'));assert(run('richSVGText({...mixedMetrics,n:richOwner},false).includes("font-size:28px")'));
+run('const restoredRuns=normalizeItem(JSON.parse(JSON.stringify(richOwner)))');assert.equal(run('restoredRuns.TextRuns[1].Style.Family'),'KaiTi');
+assert.equal(run('textRuns({Text:"新内容",TextRuns:patched})[0].Text'),'新内容');
+assert.equal(run('cleanTextStyle({Family:"unknown",Size:1000,Color:"red"}).Size'),48);assert.equal(run('cleanTextStyle({Family:"unknown",Color:"red"}).Color'),undefined);
+assert(!run('richHTML({Text:"<script>alert(1)</script>",TextRuns:[]}).includes("<script>")'));
+run('view="outline"');assert(run('richHTML({Title:"标题"},true).includes("#303139")'));
+run('const png={Id:"pic",Src:"data:image/png;base64,aGVsbG8=",Name:"测试",Width:100,Height:100};attachImages(currentId,doc().Items[0].Id,[png]);const exported=parseMarkdown(markdown(doc()),"往返")');assert.equal(run('exported.Items[0].Images[0].Src'),run('png.Src'));
+run('navigationPast=[];navigationFuture=[];navigationCurrent=null;flushNavigation();openTrash();flushNavigation();navigateHistory()');assert.equal(run('filter'),'all');run('navigateHistory(true)');assert.equal(run('filter'),'trash');
+console.log('PASS: base hierarchy and folders, range splits and overlapping formatting, range reset, mixed-font SVG metrics, run JSON validation and persistence, escaped text, visible outline title, image Markdown roundtrip and navigation.');
